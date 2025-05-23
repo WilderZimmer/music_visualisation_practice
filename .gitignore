@@ -15,13 +15,14 @@
 .ionide
 
 ### Temp Output Stuff ###
-# Ignore the frames, but keep the folder they're in
-frames/*.bmp
-# Just in case there are non-bmp frames...
-frames/*.*
+# Ignore the frames the code generates, but keep the folder they're in
+output_frames/*
 # Ignore the output files the code generates
-outputs/*.*
+outputs/*
 
 ### C++ stuff ###
 # Ignore the binaries
 bin/*.exe 
+# Ignore the Cmake stuff
+build/**
+!build/compile_commands.json

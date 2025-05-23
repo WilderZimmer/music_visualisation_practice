@@ -1,0 +1,12 @@
+[
+{
+  "directory": "C:/Users/iamlo/Documents/Programming/C++/music_visualisation_practice/build",
+  "command": "C:\\PROGRA~1\\CODEBL~1\\MinGW\\bin\\G__~1.EXE  @CMakeFiles/music_visualisation_practice.dir/includes_CXX.rsp  -std=c++20 -g -std=gnu++2a -o CMakeFiles\\music_visualisation_practice.dir\\src\\EasyBMP.cpp.obj -c C:\\Users\\iamlo\\Documents\\Programming\\C++\\music_visualisation_practice\\src\\EasyBMP.cpp",
+  "file": "C:/Users/iamlo/Documents/Programming/C++/music_visualisation_practice/src/EasyBMP.cpp"
+},
+{
+  "directory": "C:/Users/iamlo/Documents/Programming/C++/music_visualisation_practice/build",
+  "command": "C:\\PROGRA~1\\CODEBL~1\\MinGW\\bin\\G__~1.EXE  @CMakeFiles/music_visualisation_practice.dir/includes_CXX.rsp  -std=c++20 -g -std=gnu++2a -o CMakeFiles\\music_visualisation_practice.dir\\src\\music_visualiser.cpp.obj -c C:\\Users\\iamlo\\Documents\\Programming\\C++\\music_visualisation_practice\\src\\music_visualiser.cpp",
+  "file": "C:/Users/iamlo/Documents/Programming/C++/music_visualisation_practice/src/music_visualiser.cpp"
+}
+]

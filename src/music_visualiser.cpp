@@ -1,6 +1,5 @@
 // text i/o
 #include <iostream>
-#include <fstream>
 // audio i/o
 #include "AudioFile.h"
 // image i/o
@@ -32,7 +31,7 @@ int main()
 {
     vector< vector<double> > samples; int num_channels, num_samples, sample_rate;
 
-    grab_audio_data(samples, num_channels, num_samples, sample_rate, "../a_lady.wav");
+    grab_audio_data(samples, num_channels, num_samples, sample_rate, "../wav_inputs/a_lady.wav");
     double length_in_seconds = double(num_samples)/sample_rate;
 
     int frames_per_second = 12;
@@ -171,7 +170,7 @@ void output_graph(vector<complex<T>> & values, int wdth, int hght, int frame)
     int bit_depth = 32;
     // Declare a new bitmap object
     BMP image;
-    // Set size to 640 × 480
+    // Set size to 640 ï¿½ 480
     image.SetSize(wdth, hght);
     // Set its color depth to 8-bits
     image.SetBitDepth(bit_depth);
@@ -200,7 +199,7 @@ void output_graph(vector<complex<T>> & values, int wdth, int hght, int frame)
         //cout << "x=" << x << " yr=" << yr << " yi=" << yi << endl;
     }
     // Save to file
-    string frame_str = "../frames/"+fixed_len(frame, 5)+"graph.bmp";
+    string frame_str = "../output_frames/"+fixed_len(frame, 5)+"graph.bmp";
     //cout << "wrote " << frame_str << endl;
     image.WriteToFile(frame_str.c_str());
 }
@@ -213,12 +212,12 @@ void test_image()
     int bit_depth = 32;
     // Declare a new bitmap object
     BMP image;
-    // Set size to 640 × 480
+    // Set size to 640 ï¿½ 480
     image.SetSize(wdth, hght);
     // Set its color depth to 8-bits
     image.SetBitDepth(bit_depth);
     // Change colors
-    int r, g, b, a=255; // test with 8 bit depth
+    unsigned char r, g, b, a=255; // test with 8 bit depth
     for(int x=0; x<wdth; x++)
     {
         for(int y=0; y<hght; y++)
