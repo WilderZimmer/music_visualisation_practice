@@ -1,0 +1,10 @@
+
+
+Navigate to root folder:
+cd C:\Users\iamlo\Documents\Programming\C++\music_visualizer
+
+Compile Frames with sequantial filenames <PRE><NUM><POST> (where NUM is a number of width N):
+ffmpeg -framerate 21.5 -i .\frames\<PRE>%0<N>d<POST>.bmp <OUTPUT>.mp4
+
+Add audio:
+ffmpeg -i <OUTPUT>.mp4 -i <AUDIO>.wav -map 0:v -map 1:a -c:v copy -shortest <OUTPUT_SOUND>.mp4
