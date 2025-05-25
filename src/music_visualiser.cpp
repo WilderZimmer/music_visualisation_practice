@@ -4,6 +4,8 @@
 #include "AudioFile.h"
 // image i/o
 #include "EasyBMP.h"
+//command line tools
+#include <cstdlib>
 
 // math
 #include <cmath>
@@ -20,8 +22,17 @@ void fft(vector<complex<T>> & a, bool invert);
 template<typename T>
 void grab_audio_data(vector< vector<T> >& samples, int& num_channels, int& num_samples, int& sample_rate, const string filename);
 
+string fixed_len(int x, int len) // only positive x, lol !
+{
+    const auto digits = int(log10(abs(x)));
+    string str = "";
+    for(int i=0; i<len-1-digits; i++) str +="0";
+    str += to_string(x);
+    //cout << x << " has " << digits << " digits so " << str << " has " << len << " digits." << endl;
+    return str;
+}
 template<typename T>
-void output_graph(vector<complex<T>> & values, int wdth, int hght, int frame);
+void output_graph(vector<complex<T>> & values, int wdth, int hght, const string& frame_string);
 
 void test_image();
 
@@ -29,12 +40,16 @@ void test_fft();
 
 int main()
 {
-    vector< vector<double> > samples; int num_channels, num_samples, sample_rate;
+    string audio = "..\\wav_inputs\\a_lady.wav";
+    string video = "..\\outputs\\a_lady.mp4";
+    string video_with_sound = "..\\outputs\\a_lady_with_sound.mp4";
 
-    grab_audio_data(samples, num_channels, num_samples, sample_rate, "../wav_inputs/a_lady.wav");
+    vector< vector<double> > samples; 
+    int num_channels, num_samples, sample_rate;
+    grab_audio_data(samples, num_channels, num_samples, sample_rate, audio);
     double length_in_seconds = double(num_samples)/sample_rate;
 
-    int frames_per_second = 12;
+    double frames_per_second = 12.0;
     double block_length_in_seconds = 1.0/frames_per_second;
     int block_length = block_length_in_seconds * sample_rate;
     cout << "Target FPS: " << frames_per_second << endl;
@@ -50,7 +65,10 @@ int main()
     int num_blocks = int(num_samples / block_length); // How many images to generate
     cout << "Frame count: " << num_blocks << endl;
 
-    vector<complex<double>> block_audio (block_length, 0);
+    //TODO buffer the calculation int one big vec<vec< cplx<dbl> >> with a ring buffer
+    //TODO separate frame writing (slow) from calculation (fast)
+    vector<complex<double>> block_audio (block_length, 0); 
+    int str_len = log10(abs(num_blocks)) + 1;
     for(int block=0; block<num_blocks; block++)
     {
         for(int i=0; i<block_length; i++)
@@ -58,10 +76,26 @@ int main()
 
         fft(block_audio, false);
 
-        output_graph(block_audio, 1800, 900, block);
+        output_graph(block_audio, 1800, 900, "..\\output_frames\\"+fixed_len(block, str_len)+"graph.bmp");
 
         cout << "frame " << block << " done!" << endl;
     }
+
+    cout << "Attempting ffmpeg..." << endl;
+
+    string temp = "";
+    int ffmpeg_fail_code;
+    //Compile Frames with sequantial filenames <PRE><NUM><POST> (where NUM is a number of width N):
+    temp = "ffmpeg -y -framerate 21.5 -i ..\\output_frames\\%0" + to_string(str_len) + "d" + "graph.bmp " + video + " 2>&1"; 
+    ffmpeg_fail_code = system(temp.c_str()); 
+    if (ffmpeg_fail_code) cerr << "ffmpeg video creation failed with code " << ffmpeg_fail_code << endl;
+    //Add audio:
+    temp = "ffmpeg -y -i " + video + " -i " + audio + " -map 0:v -map 1:a -c:v copy -shortest " + video_with_sound + " 2>&1";
+    ffmpeg_fail_code = system(temp.c_str()); 
+    if (ffmpeg_fail_code) cerr << "ffmpeg audio adding failed with code " << ffmpeg_fail_code << endl;
+
+    cout << flush; cin.clear(); // reset in case of weird console state from system calls
+    cout << "ffmpeg conversion done!" << endl;
 
     // Tests
 
@@ -152,19 +186,8 @@ void fft(vector<complex<T>> & a, bool invert) {
     }
 }
 
-string fixed_len(int x, int len)
-{
-    const auto digits = int(log10(abs(x)));
-    string str = "";
-    for(int i=0; i<len-digits; i++)
-        str +="0";
-    str += to_string(x);
-
-    //cout << x << " has " << digits << " digits so " << str << " has " << len << " digits." << endl;
-    return str;
-}
 template<typename T>
-void output_graph(vector<complex<T>> & values, int wdth, int hght, int frame)
+void output_graph(vector<complex<T>> & values, int wdth, int hght, const string& frame_str)
 {
     // Parameters
     int bit_depth = 32;
@@ -186,26 +209,42 @@ void output_graph(vector<complex<T>> & values, int wdth, int hght, int frame)
     for(int i=0; i<N; i+=1)
         if(abs(values[i])>max_val)
             max_val = abs(values[i]);
+    //if(max_val == 0.0) max_val = 1.0;
 
     int i, yr, yi;
     for(int x=0; x<wdth; x++)
     {
-        i = double(N)*x/wdth;
-        yr = int(0.5*hght + 0.5*hght*values[i].real()/max_val);
-        yi = int(0.5*hght + 0.5*hght*values[i].imag()/max_val);
+        if (max_val > 0) // most cases
+        {
+            i = 0.5*double(N)*x/wdth; //transform from image scale to vector index (halved because symmetric)
+            yr = int(0.5*hght + 0.5*hght*values[i].real()/max_val);
+            yi = int(0.5*hght + 0.5*hght*values[i].imag()/max_val);
+            if (abs(yr)>=hght) yr=int(((yr>0)-(yr<0)+1)*hght/2.0); // If I've fucked up and overflowed somewhere
+            if (abs(yi)>=hght) yi=int(((yi>0)-(yi<0)+1)*hght/2.0); // If I've fucked up and overflowed somewhere
+        }
+        else // sometimes there's literally no sound
+        {
+            yr = 0.0;
+            yi = 0.0;
+        }
 
         image.SetPixel(x, yr, {0, 0, 255, 255}); //red for real
         image.SetPixel(x, yi, {255, 0, 0, 255}); //blue for imaginary
-        //cout << "x=" << x << " yr=" << yr << " yi=" << yi << endl;
+
+        for (int h=0; h<abs(yr-hght/2); h++)
+            image.SetPixel(x, int(0.5*hght+((yr-hght/2>0)-(yr-hght/2<0))*h), {0, 0, 255, 255}); //draw red line
+        for (int h=0; h<abs(yi-hght/2); h++) 
+            image.SetPixel(x, int(0.5*hght+((yi-hght/2>0)-(yi-hght/2<0))*h), {255, 0, 0, 255}); //draw blue line
     }
+
     // Save to file
-    string frame_str = "../output_frames/"+fixed_len(frame, 5)+"graph.bmp";
     //cout << "wrote " << frame_str << endl;
     image.WriteToFile(frame_str.c_str());
 }
 
 void test_image()
 {
+    cout << "generating test image" << endl;
     // Parameters
     int wdth = 1000;
     int hght = 1000;
@@ -228,7 +267,7 @@ void test_image()
         } //cout << endl;
     }
     // Save to file
-    image.WriteToFile("../test.bmp");
+    image.WriteToFile("../outputs/test.bmp");
 
     cout << "Image test done." << endl;
 
@@ -265,6 +304,7 @@ void test_fft()
         if(out>output_max) output_max = out;
     }
 
+    cout << "testing fft..." << endl;
     int current_sample;
     for(int i=0; i<N; i+=1)
     {
@@ -306,6 +346,7 @@ void test_fft()
 
         cout << "| " << i << endl;
     }
+    cout << "fft test done!";
 
     return;
 }

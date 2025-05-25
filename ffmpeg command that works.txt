@@ -8,3 +8,7 @@ ffmpeg -framerate 21.5 -i .\frames\<PRE>%0<N>d<POST>.bmp <OUTPUT>.mp4
 
 Add audio:
 ffmpeg -i <OUTPUT>.mp4 -i <AUDIO>.wav -map 0:v -map 1:a -c:v copy -shortest <OUTPUT_SOUND>.mp4
+
+
+ffmpeg -framerate 21.5 -i ..\\output_frames\\%04dgraph.bmp ..\\outputs\\a_lady.mp4
+ffmpeg -i ..\\outputs\\a_lady.mp4 -i ..\\wav_inputs\\a_lady.wav -map 0:v -map 1:a -c:v copy -shortest ..\\outputs\\a_lady_with_sound.mp4
