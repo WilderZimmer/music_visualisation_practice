@@ -3,6 +3,8 @@
 // audio i/o
 #include "AudioFile.h"
 // image i/o
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 #include "EasyBMP.h"
 //command line tools
 #include <cstdlib>
@@ -40,6 +42,8 @@ void test_fft();
 
 int main()
 {
+    test_image();
+
     string audio = "..\\wav_inputs\\a_lady.wav";
     string video = "..\\outputs\\a_lady.mp4";
     string video_with_sound = "..\\outputs\\a_lady_with_sound.mp4";
@@ -117,8 +121,6 @@ int main()
         }
         cout << double(sample)/sample_rate << endl;
     }
-
-    test_image();
 
     test_fft();
 
@@ -242,32 +244,36 @@ void output_graph(vector<complex<T>> & values, int wdth, int hght, const string&
     image.WriteToFile(frame_str.c_str());
 }
 
+void set_buffer_pixel(vector<uint8_t> & image_buffer, int wdth, int x, int y, uint8_t r, uint8_t g, uint8_t b)
+{
+    //Manual indexing :(
+    int idx = (y*wdth + x) * 3;
+    image_buffer[idx + 0] = r;
+    image_buffer[idx + 1] = g;
+    image_buffer[idx + 2] = b;
+    return;
+}
 void test_image()
 {
     cout << "generating test image" << endl;
     // Parameters
-    int wdth = 1000;
-    int hght = 1000;
-    int bit_depth = 32;
-    // Declare a new bitmap object
-    BMP image;
-    // Set size to 640 � 480
-    image.SetSize(wdth, hght);
-    // Set its color depth to 8-bits
-    image.SetBitDepth(bit_depth);
+    int wdth = 1024;
+    int hght = 1024;
+    // Declare a new buffer for a full image
+    vector<uint8_t> image_buffer(wdth * hght * 3); // x * y * rgb // alternately do wdth*hght*3 for rgba
     // Change colors
-    unsigned char r, g, b, a=255; // test with 8 bit depth
+    uint8_t r, g, b;
     for(int x=0; x<wdth; x++)
     {
         for(int y=0; y<hght; y++)
         {
             r = (255.0*x)/wdth; g = 0; b = (255.0*y)/hght;
             //cout << r << " ";
-            image.SetPixel(x, y, {b, g, r, a});
+            set_buffer_pixel(image_buffer, wdth, x, y, r, g, b);
         } //cout << endl;
     }
     // Save to file
-    image.WriteToFile("../outputs/test.bmp");
+    stbi_write_png("..\\outputs\\test.png", wdth, hght, 3, image_buffer.data(), wdth * 3);
 
     cout << "Image test done." << endl;
 
