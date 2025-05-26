@@ -44,13 +44,25 @@ int main()
 {
     test_image();
 
+    /*
     string audio = "..\\wav_inputs\\a_lady.wav";
     string video = "..\\outputs\\a_lady.mp4";
     string video_with_sound = "..\\outputs\\a_lady_with_sound.mp4";
-
+    */
+    /*
+    string audio = "..\\wav_inputs\\21_guns.wav";
+    string video = "..\\outputs\\21_guns.mp4";
+    string video_with_sound = "..\\outputs\\21_guns_with_sound.mp4";
+    */
+    ///*
+    string audio = "..\\wav_inputs\\golden_brown.wav";
+    string video = "..\\outputs\\golden_brown.mp4";
+    string video_with_sound = "..\\outputs\\golden_brown_with_sound.mp4";
+    //*/
     vector< vector<double> > samples; 
     int num_channels, num_samples, sample_rate;
     grab_audio_data(samples, num_channels, num_samples, sample_rate, audio);
+    if (num_channels==1) samples.push_back(samples[0]); // If it's mono, just double the channel, lol
     double length_in_seconds = double(num_samples)/sample_rate;
 
     double frames_per_second = 12.0;
@@ -69,10 +81,19 @@ int main()
     int num_blocks = int(num_samples / block_length); // How many images to generate
     cout << "Frame count: " << num_blocks << endl;
 
-    //TODO buffer the calculation int one big vec<vec< cplx<dbl> >> with a ring buffer
-    //TODO separate frame writing (slow) from calculation (fast)
-    vector<complex<double>> block_audio (block_length, 0); 
+    vector<complex<double>> block_audio (block_length, 0); double block_max;
+
+    int hght = 1000;
+    int wdth = block_length/2;
+    using Row = vector<uint8_t>;
+    Row row(wdth * 3, 0); // Just for initialising
+    vector<Row> ring_buffer (hght, row);
+    int ring_head = 0; // points to the "first" row in the buffer
+
+    vector<uint8_t> image_out(hght * wdth * 3);
+
     int str_len = log10(abs(num_blocks)) + 1;
+    string out_str;
     for(int block=0; block<num_blocks; block++)
     {
         for(int i=0; i<block_length; i++)
@@ -80,7 +101,23 @@ int main()
 
         fft(block_audio, false);
 
-        output_graph(block_audio, 1800, 900, "..\\output_frames\\"+fixed_len(block, str_len)+"graph.bmp");
+        block_max=0; 
+        for (const auto & val : block_audio) if (abs(val)>block_max) block_max=abs(val); // find maximum
+        if (block_max>0) for (auto & val : block_audio) val = 255.0*(abs(val)/block_max); // normalise it to 0.0-255.0
+        for (int x=0; x<wdth; x++) // write line to the image buffer
+        {
+            ring_buffer[ring_head][3*x + 0] = block_audio[x].real(); // R
+            ring_buffer[ring_head][3*x + 1] = block_audio[x].real(); // G
+            ring_buffer[ring_head][3*x + 2] = block_audio[x].real(); // B
+        }
+        ring_head = (ring_head + 1)%hght; // advance the head
+
+        // flatten buffer into output array
+        for (int y=0; y<hght; y++) copy(ring_buffer[(ring_head+y)%hght].begin(), ring_buffer[(ring_head+y)%hght].end(), image_out.begin() + y * wdth * 3);
+
+        // write frame PNG
+        out_str = "..\\output_frames\\"+fixed_len(block, str_len)+"graph.png";
+        stbi_write_png(out_str.c_str(), wdth, hght, 3, image_out.data(), wdth * 3);
 
         cout << "frame " << block << " done!" << endl;
     }
@@ -90,7 +127,7 @@ int main()
     string temp = "";
     int ffmpeg_fail_code;
     //Compile Frames with sequantial filenames <PRE><NUM><POST> (where NUM is a number of width N):
-    temp = "ffmpeg -y -framerate 21.5 -i ..\\output_frames\\%0" + to_string(str_len) + "d" + "graph.bmp " + video + " 2>&1"; 
+    temp = "ffmpeg -y -framerate 21.5 -i ..\\output_frames\\%0" + to_string(str_len) + "d" + "graph.png " + video + " 2>&1"; 
     ffmpeg_fail_code = system(temp.c_str()); 
     if (ffmpeg_fail_code) cerr << "ffmpeg video creation failed with code " << ffmpeg_fail_code << endl;
     //Add audio:
@@ -100,29 +137,6 @@ int main()
 
     cout << flush; cin.clear(); // reset in case of weird console state from system calls
     cout << "ffmpeg conversion done!" << endl;
-
-    // Tests
-
-    int current_sample;
-    double stt_sec = 1.0;
-    double end_sec = 1.01;
-    for(int sample=int(stt_sec*sample_rate); sample<int(end_sec*sample_rate); sample+=5) // stt_sec - end_sec seconds of audio
-    {
-        cout << "|";
-        for(int channel=0; channel<num_channels; channel++) // all channels
-        {
-            current_sample = 20*samples[channel][sample];
-            for(int i=0; i<10+current_sample; i++)
-                cout << "_";
-            cout << "0";
-            for(int i=0; i<10-current_sample; i++)
-                cout << "_";
-            cout << "|";
-        }
-        cout << double(sample)/sample_rate << endl;
-    }
-
-    test_fft();
 
     return 0;
 }
@@ -276,83 +290,6 @@ void test_image()
     stbi_write_png("..\\outputs\\test.png", wdth, hght, 3, image_buffer.data(), wdth * 3);
 
     cout << "Image test done." << endl;
-
-    return;
-}
-
-void test_fft()
-{
-    int N = pow(2, 10);
-
-    vector<complex<double>> input (N, 0);
-    vector<complex<double>> output (N, 0);
-
-    double y;
-    for(int i=0; i<N; i++)
-    {
-        y = 5*sin(50*2*PI*i/N) + 4*sin(40*2*PI*i/N) + 3*sin(30*2*PI*i/N) + 2*sin(20*2*PI*i/N) + 1*sin(10*2*PI*i/N);
-        input[i] = y + 0.0i;
-
-        output[i] = y + 0.0i;
-    }
-
-    fft(output, false);
-    //fft(output, true); //ondoes the FFT
-
-    // Plot results to check
-    double in, input_max = 0;
-    double out, output_max = 0;
-    for(int i=0; i<N; i+=1)
-    {
-        in = abs(input[i]); //abs value
-        if(in>input_max) input_max = in;
-        out = abs(output[i]); //abs value
-        if(out>output_max) output_max = out;
-    }
-
-    cout << "testing fft..." << endl;
-    int current_sample;
-    for(int i=0; i<N; i+=1)
-    {
-        cout << "|";
-
-        current_sample = 10.*input[i].real()/input_max;
-        for(int i=0; i<10+current_sample; i++)
-            cout << "_";
-        cout << "0";
-        for(int i=0; i<10-current_sample; i++)
-            cout << "_";
-
-        cout << "|";
-
-        current_sample = 10.*input[i].imag()/input_max;
-        for(int i=0; i<10+current_sample; i++)
-            cout << "_";
-        cout << "0";
-        for(int i=0; i<10-current_sample; i++)
-            cout << "_";
-
-        cout << "|";
-
-        current_sample = 10.*output[i].real()/output_max;
-        for(int i=0; i<10+current_sample; i++)
-            cout << "_";
-        cout << "0";
-        for(int i=0; i<10-current_sample; i++)
-            cout << "_";
-
-        cout << "|";
-
-        current_sample = 10.*output[i].imag()/output_max;
-        for(int i=0; i<10+current_sample; i++)
-            cout << "_";
-        cout << "0";
-        for(int i=0; i<10-current_sample; i++)
-            cout << "_";
-
-        cout << "| " << i << endl;
-    }
-    cout << "fft test done!";
 
     return;
 }
